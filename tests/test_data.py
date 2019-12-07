@@ -1,6 +1,7 @@
 import os
 import torch
 import numpy as np
+import time
 import pytest
 from ase import Atoms
 
@@ -161,6 +162,47 @@ def test_dataset(qm9_dbpath, qm9_avlailable_properties):
     # test valid path, but no properties
     dataset = spk.data.AtomsData(qm9_dbpath)
     assert set(dataset.available_properties) == set(qm9_avlailable_properties)
+
+
+def test_dataset_caching(qm9_dbpath, qm9_avlailable_properties):
+    # path exists and valid properties
+    dataset = spk.data.AtomsData(
+        qm9_dbpath, available_properties=qm9_avlailable_properties
+    )
+    dataset_cached = spk.data.AtomsData(
+        qm9_dbpath, available_properties=qm9_avlailable_properties, caching=True
+    )
+    assert dataset.available_properties == qm9_avlailable_properties
+    assert dataset.__len__() == 19
+
+    for i in range(19):
+        at, p = dataset.get_properties(i)
+        c_at, c_p = dataset_cached.get_properties(i)
+
+        assert at == c_at
+        for k, v in p.items():
+            assert torch.all(torch.eq(p[k], c_p[k]))
+
+    for i in range(19):
+        at, p = dataset.get_properties(i)
+        c_at, c_p = dataset_cached.get_properties(i)
+
+        assert at == c_at
+        for k, v in p.items():
+            assert torch.all(torch.eq(p[k], c_p[k]))
+
+    start = time.monotonic()
+    for i in range(19):
+        at, p = dataset.get_properties(i)
+    t_no_caching = time.monotonic() - start
+
+    start = time.monotonic()
+    for i in range(19):
+        at, p = dataset_cached.get_properties(i)
+
+    t_caching = time.monotonic() - start    
+
+    assert t_caching < t_no_caching
 
 
 def test_extension_check():

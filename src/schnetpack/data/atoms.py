@@ -92,6 +92,7 @@ class AtomsData(Dataset):
         centering_function (callable or None): Function for calculating center of
             molecule (center of mass/geometry/...). Center will be subtracted from
             positions.
+        caching (bool, optional): If True, get_properties results are kept in memory
     """
 
     ENCODING = "utf-8"
@@ -106,6 +107,7 @@ class AtomsData(Dataset):
         environment_provider=SimpleEnvironmentProvider(),
         collect_triples=False,
         centering_function=get_center_of_mass,
+        caching=True,
     ):
         if not dbpath.endswith(".db"):
             raise AtomsDataError(
@@ -125,6 +127,9 @@ class AtomsData(Dataset):
         self.environment_provider = environment_provider
         self.collect_triples = collect_triples
         self.centering_function = centering_function
+
+        self.caching = caching
+        self.cache = {}
 
     def get_available_properties(self, available_properties):
         """
@@ -331,7 +336,12 @@ class AtomsData(Dataset):
         Returns:
 
         """
+
         idx = self._subset_index(idx)
+
+        if self.caching and idx in self.cache:
+            return self.cache[idx]
+
         with connect(self.dbpath) as conn:
             row = conn.get(idx + 1)
         at = row.toatoms()
@@ -368,6 +378,9 @@ class AtomsData(Dataset):
             centering_function=self.centering_function,
             output=properties,
         )
+
+        if self.caching:
+            self.cache[idx] = [at, properties]
 
         return at, properties
 
