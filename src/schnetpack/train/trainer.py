@@ -96,6 +96,7 @@ class Trainer:
             "best_loss": self.best_loss,
             "optimizer": self.optimizer.state_dict(),
             "hooks": [h.state_dict for h in self.hooks],
+            "stop": self._stop,
         }
         if self._check_is_parallel():
             state_dict["model"] = self._model.module.state_dict()
@@ -110,6 +111,7 @@ class Trainer:
         self.best_loss = state_dict["best_loss"]
         self.optimizer.load_state_dict(state_dict["optimizer"])
         self._load_model_state_dict(state_dict["model"])
+        self._stop = state_dict.get("stop", False)
 
         for h, s in zip(self.hooks, self.state_dict["hooks"]):
             h.state_dict = s
@@ -154,7 +156,6 @@ class Trainer:
         """
         self._model.to(device)
         self._optimizer_to(device)
-        self._stop = False
 
         for h in self.hooks:
             h.on_train_begin(self)
